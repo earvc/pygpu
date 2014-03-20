@@ -169,13 +169,12 @@ class Device(object):
 				self.draw_line(pixel_c, pixel_a)
 
 
-# 
-# *
-# *
-# 	Matrix transform functions
-# *
-# *
+##################################
 #
+#   Matrix transform functions
+# 
+##################################
+
 
 
 # create scale matrix

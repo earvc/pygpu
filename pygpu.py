@@ -14,11 +14,22 @@ class Camera(object):
 # Class to describe a Mesh object
 class Mesh(object):
 
-	def __init__(self, vertices, name, position, rotation):
+	def __init__(self, vertices, faces, name, position, rotation):
 		self.name = name   		  # mesh name
 		self.vertices = vertices  # collection of (x,y,z) vertices to define mesh
+		self.faces = faces        # collections of faces to define the mesh
 		self.position = position  # its position in the 3d world
 		self.rotation = rotation  # rotation state of the mesh
+
+
+# Class to define the face of a mesh
+# Face objects simply index the vertices index to get the 
+# three vertices of a face
+class Face(object):
+	def __init__(self, a, b, c):
+		self.a = a  # faces are triangles so have a set of 3 indexes
+		self.b = b
+		self.c = c
 
 
 # Class to define the rendering device
@@ -51,12 +62,26 @@ class Device(object):
 		pygame.display.update()
 
 
-	# transform 3d coords to 2d coords using the transformaton matrix
-	def project(self, coords, transform_matrix):
-		new_coords = np.dot(transform_matrix, coords)
-		display_x = new_coords[0] * self.pixel_width + self.pixel_width / 2.0
-		display_y = -1 * new_coords[1] * self.pixel_height+ self.pixel_height / 2.0
-		return (display_x, display_y)
+	# transform 3d coords to window coords using the transformaton matrix
+	def project_to_window(self, vertex, transform_matrix):
+		# get clipped coordinates (to window)
+		clip_coords = np.dot(transform_matrix, vertex)
+
+		# get normalized device coordinates
+		n_coords = clip_coords / float(clip_coords[3])
+
+		# now translate into window coordinates
+		viewport_x = 0  # specify x coordinate of bottom left-most point
+		viewport_y = 0 # specify y coordinate of bottom left-most point
+		viewport_w = self.pixel_width
+		viewport_h = self.pixel_height
+
+		xw = ((viewport_w / 2.0) * n_coords[0]) + (viewport_x + (viewport_w / 2.0))
+		yw = ((viewport_h / 2.0) * n_coords[1]) + (viewport_y + (viewport_h / 2.0))
+		zw = ((FAR - NEAR) / 2.0) * n_coords[2] + ((FAR + NEAR) / 2.0)
+
+		return (xw, yw, zw)
+
 
 	# does clipping to make sure only pixels on screen will be drawn
 	def draw_point(self, point):
@@ -65,43 +90,83 @@ class Device(object):
 
 		#if (x >= 0 and y >=0 and x < self.pixel_width and y < self.pixel_height):
 		self.put_pixel(int(x), int(y), (0, 255, 0, 255))
-			
+	
+
+	# draw line b/t two points using Bresenham's algorithm
+	def draw_line(self, point0, point1):
+		x0 = int(point0[0])
+		y0 = int(point0[1])
+		x1 = int(point1[0])
+		y1 = int(point1[1])
+
+		dx = abs(x1 - x0)
+		dy = abs(y1 - y0)
+
+		if x0 < x1:
+			sx = 1
+		else:
+			sx = -1
+
+		if y0 < y1:
+			sy = 1
+		else:
+			sy = -1
+
+		err = dx - dy
+
+		while True:
+			point_to_draw = (x0, y0)
+			self.draw_point(point_to_draw)
+
+			# check if we're done
+			if ((x0 == x1) and (y0 == y1)):
+				break
+
+			# otherwise update our point
+			e2 = 2 * err
+
+			if e2 > -dy:
+				err -= dy
+				x0 += sx
+
+			if e2 < dx:
+				err += dx
+				y0 += sy
+
 
 	# main rendor function that re-computes each vertex projection each frame
 	def render(self, camera, meshes):
 		view = view_matrix(camera, UP_VECTOR)
 
+		# generate projection matrix
 		aspect_ratio = float(self.pixel_height) / float(self.pixel_width)
 		projection = perspective_projection(NEAR, FAR, ANGLE_OF_VIEW, aspect_ratio)
 
 		for mesh in meshes:
+			# generate world matrix for the mesh
 			rotation_angles = (mesh.rotation[0], mesh.rotation[1], mesh.rotation[2])
 			translations = (mesh.position[0], mesh.position[1], mesh.position[2])
 			world = world_matrix(SCALING, rotation_angles, translations)
 
-			for vertex in mesh.vertices:
-				# first get eye coordinates
-				eye_coords = np.dot(world, vertex)
-				eye_coords = np.dot(view, eye_coords)
+			# generate final transform matrix
+			transform_matrix = np.dot(view, world)
+			transform_matrix = np.dot(projection, transform_matrix)
 
-				# next get clip coordinates
-				clip_coords = np.dot(projection, eye_coords)
+			for face in mesh.faces:  # now render each face on the screen
+				# first define the three vertices of the face to be drawn
+				vertex_a = mesh.vertices[face.a]
+				vertex_b = mesh.vertices[face.b]
+				vertex_c = mesh.vertices[face.c]
 
-				# get normalized device coordinates
-				n_coords = clip_coords / float(clip_coords[3])
+				# convert teh 3-d vertices to 2-d pixels that can be drawn on the screen
+				pixel_a = self.project_to_window(vertex_a, transform_matrix)
+				pixel_b = self.project_to_window(vertex_b, transform_matrix)
+				pixel_c = self.project_to_window(vertex_c, transform_matrix)
 
-				# now translate into window coordinates
-				viewport_x = 0  # specify x coordinate of bottom left-most point
-				viewport_y = 0 # specify y coordinate of bottom left-most point
-				viewport_w = self.pixel_width
-				viewport_h = self.pixel_height
-
-				xw = ((viewport_w / 2.0) * n_coords[0]) + (viewport_x + (viewport_w / 2.0))
-				yw = ((viewport_h / 2.0) * n_coords[1]) + (viewport_y + (viewport_h / 2.0))
-				zw = ((FAR - NEAR) / 2.0) * n_coords[2] + ((FAR + NEAR) / 2.0)
-
-				window_coords = (xw, yw, zw)
-				self.draw_point(window_coords)
+				# draw a line between each pixel
+				self.draw_line(pixel_a, pixel_b)
+				self.draw_line(pixel_b, pixel_c)
+				self.draw_line(pixel_c, pixel_a)
 
 
 # 

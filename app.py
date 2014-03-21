@@ -2,7 +2,6 @@ from pygpu import *
 import numpy as np
 import pygame
 import json
-from pprint import pprint
 
 def load_mesh_from_json(filename):
 	meshes = []  # list of meshes we will return
@@ -10,7 +9,7 @@ def load_mesh_from_json(filename):
 	json_data = open(filename)  # open json file to read
 	data = json.load(json_data) # load the data for parsing
 
-	num_meshes = len(data["meshes"])	
+	num_meshes = len(data["meshes"])  # holds number of meshes in model	
 
 	for mesh_index in range(num_meshes):
 		
@@ -84,11 +83,11 @@ def load_mesh_from_json(filename):
 
 
 
-#######################################################################
-#																	  #
-# 							main program							  # 			
-#																	  #
-#######################################################################
+#############################################
+#											#
+# 				main program				# 			
+#										    #
+#############################################
 
 
 
@@ -99,7 +98,7 @@ my_device = Device(500, 500)  # screen 100 x 100
 
 
 ####### code to create a new camera ######
-camera_position = (0, 0, 5)  # move 20 units along the z axis
+camera_position = (0, 0, 5)  # move 5 units along the z axis
 camera_target = (0.0, 0.0, 1.0)  # pointed straight at z axis
 my_camera = Camera(camera_position, camera_target)
 
@@ -120,10 +119,10 @@ while not done:
 	if done:
 		break
 
-	my_device.set_screen_color((0, 0, 0, 255))  # clear screen
+	my_device.clear((0, 0, 0, 255))  # clear screen
 	# rotate cube slightly during each frame rendered
 	for mesh in meshes:
-		mesh.rotation = (mesh.rotation[0] + 0.1, mesh.rotation[1] + 0.1, mesh.rotation[2] + 0.1) # move mesh position slightly
+		mesh.rotation = (mesh.rotation[0] , mesh.rotation[1] + 40, mesh.rotation[2]) # move mesh position slightly
 		my_device.render(my_camera, meshes)  # render meshes
 		my_device.update_display()  # update display
 

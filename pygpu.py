@@ -44,16 +44,23 @@ class Device(object):
 		self.main_clock = pygame.time.Clock()
 		self.display = pygame.display.set_mode((self.pixel_width, self.pixel_height), 0, 32)  # create display
 
+		self.depth_buffer = np.full( (self.pixel_width, self.pixel_height), MAX_VAL)
 
-	# set screen to one solid color
-	def set_screen_color(self, color):
-		#for x in range(self.pixel_width):
-		#	for y in range(self.pixel_height):
-		#		self.display.set_at((x,y), color)
-		self.display.fill((0, 0, 0, 255))
+	# clear screen to one solid color
+	def clear(self, color):
+		self.display.fill(color)
+		self.depth_buffer[:] = MAX_VAL  # clear depth buffer
 
 	# set pixel
-	def put_pixel(self, x, y, color):
+	def put_pixel(self, x, y, z, color):
+		#print "z buffer shows: " + str(self.depth_buffer[x][y])
+		#print "current z is: " + str(z)
+	
+		if self.depth_buffer[x][y] < z:
+			#print "not drawing this"
+			return  # ignore put pixel if depth buffer is less than z
+
+		self.depth_buffer[x][y] = z
 		self.display.set_at((x,y), color)
 
 
@@ -84,12 +91,12 @@ class Device(object):
 
 
 	# does clipping to make sure only pixels on screen will be drawn
-	def draw_point(self, point):
-		x = point[0]
-		y = point[1]
+	def draw_point(self, point, color):
+		x = point[X]
+		y = point[Y]
+		z = point[Z]
 
-		#if (x >= 0 and y >=0 and x < self.pixel_width and y < self.pixel_height):
-		self.put_pixel(int(x), int(y), (0, 255, 0, 255))
+		self.put_pixel(int(x), int(y), z, color)
 	
 
 	# draw line b/t two points using Bresenham's algorithm
@@ -133,6 +140,99 @@ class Device(object):
 				err += dx
 				y0 += sy
 
+		# clamp value between 0 and 1
+	def clamp(self, value, min_val = 0, max_val = 1):
+		return max( float(min_val), min(float(value), float(max_val)) )
+
+
+	# interpolate the value between 2 vertices
+	# min is the starting point, max is the ending
+	def interpolate(self, min_val, max_val, gradient):
+		val = float(min_val) + ( float(max_val) - float(min_val) ) * self.clamp(float(gradient))
+		return val
+
+	# draw line between two points left to right
+	# papb -> pcpd
+	def process_scan_line(self, y, pa, pb, pc, pd, color):
+		# gradient between vertex a and vertex b
+		if pa[Y] != pb[Y]:
+			gradient1 = (y - pa[Y]) / (pb[Y] - pa[Y])
+		else:
+			gradient1 = 1
+
+		# gradient between  vertex c and vertex d
+		if pc[Y] != pd[Y]:
+			gradient2 = (y - pc[Y]) / (pd[Y] - pc[Y])
+		else:
+			gradient2 = 1
+
+
+		# compute sx and ex
+		sx = int(self.interpolate(pa[X], pb[X], gradient1))
+		ex = int(self.interpolate(pc[X], pd[X], gradient2))
+
+		# starting z and ending z
+		z1 = self.interpolate(pa[Z], pb[Z], gradient1)
+		z2 = self.interpolate(pc[Z], pd[Z], gradient2)
+
+		for x in range(sx, ex):  # draw a point from startx to finish x
+			gradient = (float(x) - float(sx)) / (float(ex) - float(sx))
+
+			z = self.interpolate(z1, z2, gradient)
+
+			self.draw_point((x, y, z), color)
+
+
+	# function to draw the triangle given 2 points and the color
+	def draw_triangle(self, p1, p2, p3, color):
+		# first sort p1, p2 and p3 so that p1 is at the top
+		# followed by p2 and then p3
+
+		if p1[Y] > p2[Y]:
+			temp = p2
+			p2 = p1
+			p1 = temp
+
+		if p2[Y] > p3[Y]:
+			temp = p2
+			p2 = p3
+			p3 = temp
+
+		if p1[Y] > p2[Y]:
+			temp = p2
+			p2 = p1
+			p1 = temp
+
+		# now calculate inverse slopes
+		if p2[Y] - p1[Y] > 0:
+			dp1p2 = ( float(p2[X]) - float(p1[X]) ) / ( float(p2[Y]) - float(p1[Y]) )
+		else:
+			dp1p2 = 0.0
+
+		if p3[Y] - p1[Y] > 0:
+			dp1p3 = ( float(p3[X]) - float(p1[X]) ) / ( float(p3[Y]) - float(p1[Y]) )
+		else:
+			dp1p3 = 0.0
+
+
+		# now draw scan line for the triangles
+
+		start_y = int(p1[Y])
+		end_y = int(p3[Y]) + 1
+
+		if dp1p2 > dp1p3:
+			for y in range(start_y, end_y):
+				if y < p2[Y]:
+					self.process_scan_line(y, p1, p3, p1, p2, color)
+				else:
+					self.process_scan_line(y, p1, p3, p2, p3, color)
+		else:
+			for y in range(start_y, end_y):
+				if y < p2[Y]:
+					self.process_scan_line(y, p1, p2, p1, p3, color)
+				else:
+					self.process_scan_line(y, p2, p3, p1, p3, color)
+
 
 	# main rendor function that re-computes each vertex projection each frame
 	def render(self, camera, meshes):
@@ -152,22 +252,34 @@ class Device(object):
 			transform_matrix = np.dot(view, world)
 			transform_matrix = np.dot(projection, transform_matrix)
 
+			faceindex = 0
 			for face in mesh.faces:  # now render each face on the screen
 				# first define the three vertices of the face to be drawn
 				vertex_a = mesh.vertices[face.a]
 				vertex_b = mesh.vertices[face.b]
 				vertex_c = mesh.vertices[face.c]
 
+
 				# convert teh 3-d vertices to 2-d pixels that can be drawn on the screen
 				pixel_a = self.project_to_window(vertex_a, transform_matrix)
 				pixel_b = self.project_to_window(vertex_b, transform_matrix)
 				pixel_c = self.project_to_window(vertex_c, transform_matrix)
 
-				# draw a line between each pixel
-				self.draw_line(pixel_a, pixel_b)
-				self.draw_line(pixel_b, pixel_c)
-				self.draw_line(pixel_c, pixel_a)
+			
+				# color triangles
+				color = 2 + (faceindex % len(mesh.faces)) * 100 / len(mesh.faces)
+				#if faceindex == 0 or faceindex ==1:
+				#	color_vec = (255, 255, 0, 255)
+				#else:
+				color_vec = (color, color, color, 255)
+				self.draw_triangle(pixel_a, pixel_b, pixel_c, color_vec)
+				faceindex += 1
 
+				# draw a line between each pixel
+				#self.draw_line(pixel_a, pixel_b)
+				#self.draw_line(pixel_b, pixel_c)
+				#self.draw_line(pixel_c, pixel_a)
+	
 
 ##################################
 #

@@ -1,0 +1,33 @@
+--Data--
+Vertices - a lot of 4 x 1 matrices
+Faces - a lot of 3-dim arrays indices specifying three vertices that make the face
+
+
+
+--Model View Matrices--
+Scale Matrix 	  - 4x4 --> cx, cy, cz	   - int
+Rotation Matrix X - 4x4 --> X0, X1, X2, X3 - sin/cos
+Rotation Matrix Y - 4x4 --> Y0, Y1, Y2, Y3 - sin/cos
+Rotation Matrix Z - 4x4 --> Z0, Z1, Z2, Z3 - sin/cos
+Transpose Matrix  - 4x4 --> tx, ty, tz     - int
+
+* 5 total matrices
+* 18 inputs
+
+--Camera View Matrices--
+U0, U1, U2
+V0, V1, V2
+N0, N1, N2
+
+all floats
+
+* 1 matrix
+* 9 inputs
+
+--Projection matrix--
+P0 - P7
+all floats
+
+* 1 matrix
+* 8 inputs
+

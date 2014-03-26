@@ -1,0 +1,6 @@
+3/25/14
+
+Action items: 
+Earvin - VGA timing diagram for 1024 x 768 resolution
+Anjanna - Block diagram for hardware and software and description(s), pipeline description
+Gauthaum - Block diagram for 3d accelerator

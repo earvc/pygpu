@@ -69,7 +69,7 @@ def load_mesh_from_json(filename):
 		name = data["meshes"][mesh_index]["name"]
 
 		# set default rotation values
-		rotation = (0, 0, 180)
+		rotation = (-20, 0, 180)
 
 		# now we have all of the mesh data so we can create he mesh object
 		new_mesh = Mesh(vertices, faces, name, position, rotation)
@@ -91,10 +91,8 @@ def load_mesh_from_json(filename):
 
 
 
-
-
 ####### code to create a new rendering device #######
-my_device = Device(500, 500)  # screen 100 x 100
+my_device = Device(640, 480)  # screen 100 x 100
 
 
 ####### code to create a new camera ######
@@ -104,28 +102,46 @@ my_camera = Camera(camera_position, camera_target)
 
 
 ####### code to load in mesh from json file #######
-meshes = load_mesh_from_json("monkey.babylon")
+meshes = load_mesh_from_json("plate.babylon")
 
+global doonce
 
 done = False
-
-while not done:
+offset = 5
+z = 10
+i = 1
+z_rotate = 0
+y_rotate = 0
+while True:
 
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:  # wait for user to close window
 			done = True
 			break
+		if event.type == pygame.KEYDOWN:
+			if event.key == pygame.K_LEFT:
+				z_rotate = -5
+			if event.key == pygame.K_RIGHT:
+				z_rotate = 5
+			if event.key == pygame.K_UP:
+				y_rotate = 5
+			if event.key == pygame.K_DOWN:
+				y_rotate = -5
+			if event.key == pygame.K_SPACE:
+				pass
+		if event.type == pygame.KEYUP:
+			z_rotate = 0
+			y_rotate = 0
 
 	if done:
 		break
 
 	my_device.clear((0, 0, 0, 255))  # clear screen
 	# rotate cube slightly during each frame rendered
+	
 	for mesh in meshes:
-		mesh.rotation = (mesh.rotation[0] , mesh.rotation[1] + 40, mesh.rotation[2]) # move mesh position slightly
+		mesh.rotation = (mesh.rotation[0] + y_rotate, mesh.rotation[1], mesh.rotation[2] + z_rotate) # move mesh position slightly
 		my_device.render(my_camera, meshes)  # render meshes
 		my_device.update_display()  # update display
-
-	
 	
 

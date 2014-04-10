@@ -3,6 +3,13 @@ import pygame
 from math import *
 from constants import *
 
+doonce = False
+doonce1 = True
+
+############ file io shit ##############
+fo = open("numbers.txt", "w")
+fo.write("file is open")
+
 # Class to describe a Camera object
 class Camera(object):
 
@@ -154,22 +161,73 @@ class Device(object):
 	# draw line between two points left to right
 	# papb -> pcpd
 	def process_scan_line(self, y, pa, pb, pc, pd, color):
+		
+		global doonce1
+		global fo
+
 		# gradient between vertex a and vertex b
 		if pa[Y] != pb[Y]:
 			gradient1 = (y - pa[Y]) / (pb[Y] - pa[Y])
+			gradient1num = (y - pa[Y])
+			gradient1den = (pb[Y] - pa[Y])
 		else:
 			gradient1 = 1
+			gradient1num = 1
+			gradient1den = 1
 
 		# gradient between  vertex c and vertex d
 		if pc[Y] != pd[Y]:
 			gradient2 = (y - pc[Y]) / (pd[Y] - pc[Y])
+			gradient2num = (y - pc[Y])
+			gradient2den = (pd[Y] - pc[Y])
 		else:
 			gradient2 = 1
-
+			gradient2num = 1
+			gradient2den = 1
 
 		# compute sx and ex
 		sx = int(self.interpolate(pa[X], pb[X], gradient1))
 		ex = int(self.interpolate(pc[X], pd[X], gradient2))
+
+		if doonce1 == False:
+			print "-----------y location:"
+			print y
+			print
+			print "-----------gradient 1"
+			print gradient1num
+			print gradient1den
+			print gradient1
+			print
+
+			print "-----------gradient 2"
+			print gradient2num
+			print gradient2den
+			print gradient2
+			print
+
+			print "-----------sx and ex"
+			print sx
+			print ex
+			print
+
+			fo.write("-----------y location:\n")
+			fo.write(str(y) + "\n\n")
+
+			fo.write("-----------gradient 1\n")
+			fo.write(str(gradient1num) + "\n")
+			fo.write(str(gradient1den) + "\n")
+			fo.write(str(gradient1) + "\n\n")
+		
+			fo.write("-----------gradient 2\n")
+			fo.write(str(gradient2num) + "\n")
+			fo.write(str(gradient2den) + "\n")
+			fo.write(str(gradient2) + "\n\n")
+
+			fo.write("-----------sx and ex\n")
+			fo.write(str(sx) + "\n")
+			fo.write(str(ex) + "\n\n")
+
+			
 
 		# starting z and ending z
 		z1 = self.interpolate(pa[Z], pb[Z], gradient1)
@@ -179,7 +237,6 @@ class Device(object):
 			gradient = (float(x) - float(sx)) / (float(ex) - float(sx))
 
 			z = self.interpolate(z1, z2, gradient)
-
 			self.draw_point((x, y, z), color)
 
 
@@ -187,6 +244,8 @@ class Device(object):
 	def draw_triangle(self, p1, p2, p3, color):
 		# first sort p1, p2 and p3 so that p1 is at the top
 		# followed by p2 and then p3
+
+		global doonce1
 
 		if p1[Y] > p2[Y]:
 			temp = p2
@@ -206,19 +265,60 @@ class Device(object):
 		# now calculate inverse slopes
 		if p2[Y] - p1[Y] > 0:
 			dp1p2 = ( float(p2[X]) - float(p1[X]) ) / ( float(p2[Y]) - float(p1[Y]) )
+			dp1p2num = float(p2[X]) - float(p1[X])
+			dp1p2den = float(p2[Y]) - float(p1[Y])
+
 		else:
 			dp1p2 = 0.0
+			dp1p2num = 0
+			dp1p2den = 0
 
 		if p3[Y] - p1[Y] > 0:
 			dp1p3 = ( float(p3[X]) - float(p1[X]) ) / ( float(p3[Y]) - float(p1[Y]) )
+			dp1p3num = float(p3[X]) - float(p1[X])
+			dp1p3den = float(p3[Y]) - float(p1[Y]) 
 		else:
 			dp1p3 = 0.0
+			dp1p3num = 0
+			dp1p3den = 0
+
+		if doonce1 == False:
+			print "---------dp1p2 is: "
+			print dp1p2
+			print dp1p2num
+			print dp1p2den
+			print
+			print "---------dp1p3 is: "
+			print dp1p3
+			print dp1p3num
+			print dp1p3den
+			print
+
+			fo.write("---------dp1p2 is: \n")
+			fo.write(str(dp1p2) + "\n")
+			fo.write(str(dp1p2num) + "\n")
+			fo.write(str(dp1p2den) + "\n\n")
+
+			fo.write("---------dp1p3 is: \n")
+			fo.write(str(dp1p3) + "\n")
+			fo.write(str(dp1p3num) + "\n")
+			fo.write(str(dp1p3den) + "\n\n")
 
 
 		# now draw scan line for the triangles
 
 		start_y = int(p1[Y])
 		end_y = int(p3[Y]) + 1
+
+		if doonce1 == False: 
+			print "-----------start_y and end_y of triangle: "
+			print start_y
+			print end_y
+			print
+
+			fo.write("-----------start_y and end_y of triangle:\n")
+			fo.write(str(start_y) + "\n")
+			fo.write(str(end_y) + "\n")
 
 		if dp1p2 > dp1p3:
 			for y in range(start_y, end_y):
@@ -236,11 +336,17 @@ class Device(object):
 
 	# main rendor function that re-computes each vertex projection each frame
 	def render(self, camera, meshes):
+		global doonce
+		global doonce1
+		global fo
 		view = view_matrix(camera, UP_VECTOR)
 
 		# generate projection matrix
-		aspect_ratio = float(self.pixel_height) / float(self.pixel_width)
+		#aspect_ratio = float(self.pixel_height) / float(self.pixel_width)
+		aspect_ratio = 1
 		projection = perspective_projection(NEAR, FAR, ANGLE_OF_VIEW, aspect_ratio)
+
+		flag = 0
 
 		for mesh in meshes:
 			# generate world matrix for the mesh
@@ -259,26 +365,39 @@ class Device(object):
 				vertex_b = mesh.vertices[face.b]
 				vertex_c = mesh.vertices[face.c]
 
-
 				# convert teh 3-d vertices to 2-d pixels that can be drawn on the screen
 				pixel_a = self.project_to_window(vertex_a, transform_matrix)
 				pixel_b = self.project_to_window(vertex_b, transform_matrix)
-				pixel_c = self.project_to_window(vertex_c, transform_matrix)
+				pixel_c = self.project_to_window(vertex_c, transform_matrix) 
 
-			
+				if (doonce == False and faceindex == 45):
+					print "----------pixels of face " + str(faceindex) + " are: "
+					print pixel_a
+					print pixel_b
+					print pixel_c
+					print
+
+					fo.write("----------pixels of face " + str(faceindex) + " are: \n")
+					fo.write(str(pixel_a) + "\n")
+					fo.write(str(pixel_b) + "\n")
+					fo.write(str(pixel_c) + "\n\n") 
+
+					doonce = True
+					doonce1 = False
+
 				# color triangles
 				color = 2 + (faceindex % len(mesh.faces)) * 100 / len(mesh.faces)
-				#if faceindex == 0 or faceindex ==1:
-				#	color_vec = (255, 255, 0, 255)
-				#else:
-				color_vec = (color, color, color, 255)
+				color_vec = (color , color, 255, 0)
 				self.draw_triangle(pixel_a, pixel_b, pixel_c, color_vec)
 				faceindex += 1
 
+				
+				doonce1 = True
 				# draw a line between each pixel
 				#self.draw_line(pixel_a, pixel_b)
 				#self.draw_line(pixel_b, pixel_c)
 				#self.draw_line(pixel_c, pixel_a)
+			
 	
 
 ##################################
